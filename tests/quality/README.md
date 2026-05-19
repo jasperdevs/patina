@@ -1,10 +1,13 @@
-# Quality Benchmark
+# Quality Checks
 
-Deterministic measurement of patina's stylometry / lexicon signal layer
-against a labeled fixture set. Runs with no LLM calls, no API key, no
-network — fast enough to run on every CI build.
+patina has two quality layers:
 
-## Run it
+1. **Deterministic benchmark** — no LLM calls, no API key, no network.
+   It checks the stylometry / lexicon signal layer against labeled fixtures.
+2. **Live quality regression** — credentialed KO/EN rewrite checks that call
+   a model, then report meaning preservation and residual AI-likeness.
+
+## Deterministic benchmark
 
 ```bash
 npm run benchmark
@@ -15,7 +18,7 @@ Outputs:
 - A list of any misclassified fixtures with their feature values
 - `tests/quality/results.json` — full per-fixture log (gitignored)
 
-## What it measures
+### What it measures
 
 Every fixture under `tests/fixtures/suspect-zones/{lang}/{ai|natural}/*.md`
 carries an `expected_hot` label in its frontmatter. The benchmark runs
@@ -32,15 +35,76 @@ paragraph is SUSPECT iff
 
 Per-language metrics use `expected_hot=true` as the positive class.
 
-## What it does NOT measure
+### What it does NOT measure
 
 - LLM-based scoring (`src/scoring.js`). The LLM is non-deterministic by
   design and adds API cost / latency, so it stays out of this layer.
-  A separate live-mode benchmark would be its own follow-up.
 - Rewrite quality (does the rewritten text read better?). That requires
-  human or LLM grading and lives in `tests/e2e/quality-test.js`.
+  human or LLM grading and lives in the live quality regression below.
 - AUROC against a ranked score — the current decision is binary
   (hot/cold), so we report accuracy + F1 instead.
+
+## Live quality regression
+
+```bash
+npm run quality:live
+```
+
+This runs `tests/quality/live-quality.mjs` against committed synthetic
+fixtures under:
+
+```text
+tests/fixtures/live-quality/ko/*.md
+tests/fixtures/live-quality/en/*.md
+```
+
+The runner writes:
+
+- `artifacts/live-quality/results.json`
+- `artifacts/live-quality/report.md`
+
+These artifacts are gitignored locally and uploaded by the PR CI job.
+
+### Required environment
+
+Set one of:
+
+- `PATINA_API_KEY`
+- `PATINA_LIVE_API_KEY`
+
+Optional:
+
+- `PATINA_MODEL` or `PATINA_LIVE_MODEL` (default: `gpt-4o`)
+- `PATINA_API_BASE` or `PATINA_LIVE_API_BASE` (default: OpenAI-compatible `/v1`)
+- `PATINA_LIVE_PROVIDER` (`openai`, `gemini`, `groq`, `together`) to use a provider preset
+- provider-specific key when `PATINA_LIVE_PROVIDER` is set, for example `GEMINI_API_KEY`
+- `PATINA_LIVE_TIMEOUT_MS` (default: `120000`)
+
+### Verdicts and CI policy
+
+| Verdict | Meaning | Exit code in v1 |
+|---|---|---:|
+| `PASS` | rewrite + scoring + report generation succeeded, no warnings | 0 |
+| `WARN` | infrastructure succeeded, but MPS/fidelity/AI-likeness is concerning | 0 |
+| `ERROR` | missing credential, provider/model failure, timeout, schema failure, fixture error, or report failure | nonzero |
+
+Quality score thresholds are **report-first** in v1. A low MPS/fidelity or
+high residual AI-likeness is surfaced as `WARN`, not used as a merge blocker.
+Infrastructure/report failures are fail-closed and fail CI.
+
+### PR CI and fork PR caveat
+
+`.github/workflows/test.yml` keeps the existing Node 18/20/22 `npm test`
+matrix and adds a separate `live-quality` job on Node 22. That job runs the
+same `npm run quality:live` command, uploads `artifacts/live-quality/`, and
+appends `report.md` to `$GITHUB_STEP_SUMMARY`.
+
+GitHub Actions does not pass normal repository secrets to workflows triggered
+from forked pull requests, except `GITHUB_TOKEN`. Because this workflow is
+fail-closed for missing credentials and it runs PR code, it deliberately uses
+`pull_request` and does **not** switch to `pull_request_target` just to expose
+secrets. Fork PRs may therefore fail the live-quality job until a maintainer
+chooses a different policy.
 
 ## Extending the corpus
 

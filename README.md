@@ -192,6 +192,7 @@ Pattern packs are auto-discovered by language prefix. `.patina.yaml` in the work
 - **[Launch Copy](docs/social/patina-launch-copy.md)** — Show HN, Reddit, X, Korean community drafts
 - **[Stylometry](core/stylometry.md)** — burstiness + MATTR + AI-lexicon algorithm
 - **[Scoring](core/scoring.md)** — AI-likeness + fidelity + MPS
+- **[Quality Checks](tests/quality/README.md)** — deterministic benchmark + credentialed KO/EN live quality workflow
 - **[Changelog](CHANGELOG.md)** — release notes and methodology
 - **[Contributing](CONTRIBUTING.md)** — pattern submissions, staleness reports
 
