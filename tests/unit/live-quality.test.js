@@ -118,6 +118,25 @@ test('low quality scores become WARN and keep a zero exit policy', async () => {
   }
 });
 
+test('rewrite output is formatted before scoring and reporting', async () => {
+  const root = tempRoot();
+  try {
+    writeFixture(root);
+    const report = await runLiveQuality({
+      fixturesRoot: root,
+      env: { PATINA_LIVE_API_KEY: 'test-key' },
+      ...mockDeps({
+        rewrite: '[BODY]\nRewritten human text with important claim.\n[/BODY]\n\n[SELF_AUDIT]\nleak\n[/SELF_AUDIT]',
+      }),
+    });
+    assert.equal(report.summary.overall, 'PASS');
+    assert.equal(report.fixtures[0].rewritten, 'Rewritten human text with important claim.');
+    assert.ok(!report.fixtures[0].rewritten.includes('SELF_AUDIT'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('provider failures become ERROR and nonzero', async () => {
   const root = tempRoot();
   try {

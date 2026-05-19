@@ -11,6 +11,7 @@ import yaml from 'js-yaml';
 import { callLLM } from '../../src/api.js';
 import { loadConfig, getRepoRoot } from '../../src/config.js';
 import { loadPatterns, loadProfile, loadCoreFile } from '../../src/loader.js';
+import { formatOutput } from '../../src/output.js';
 import { buildPrompt } from '../../src/prompt-builder.js';
 import { selectProvider } from '../../src/providers.js';
 import { scoreText, scoreMPS, scoreFidelity } from '../../src/scoring.js';
@@ -248,7 +249,10 @@ async function evaluateFixture({ fixture, settings, policy, repoRoot, deps }) {
     if (typeof rewritten !== 'string' || rewritten.trim() === '') {
       throw new Error('Rewrite returned an empty response');
     }
-    row.rewritten = rewritten.trim();
+    row.rewritten = formatOutput(rewritten, 'rewrite', {}).trim();
+    if (!row.rewritten) {
+      throw new Error('Rewrite returned an empty response after output formatting');
+    }
 
     const [beforeAI, afterAI, mps, fidelity] = await Promise.all([
       deps.scoreText({ text: fixture.body, config, patterns, apiKey: settings.apiKey, baseURL: settings.baseURL, model: settings.model }),
