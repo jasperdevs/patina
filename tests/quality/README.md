@@ -4,8 +4,8 @@ patina has two quality layers:
 
 1. **Deterministic benchmark** — no LLM calls, no API key, no network.
    It checks the stylometry / lexicon signal layer against labeled fixtures.
-2. **Live quality regression** — credentialed KO/EN rewrite checks that call
-   a model, then report meaning preservation and residual AI-likeness.
+2. **Live quality regression** — local, credentialed KO/EN rewrite checks
+   that call a model, then report meaning preservation and residual AI-likeness.
 
 ## Deterministic benchmark
 
@@ -63,7 +63,7 @@ The runner writes:
 - `artifacts/live-quality/results.json`
 - `artifacts/live-quality/report.md`
 
-These artifacts are gitignored locally and uploaded by the PR CI job.
+These artifacts are gitignored locally. They are meant for manual review unless a maintainer deliberately uploads them somewhere else.
 
 ### Required environment
 
@@ -90,21 +90,19 @@ Optional:
 
 Quality score thresholds are **report-first** in v1. A low MPS/fidelity or
 high residual AI-likeness is surfaced as `WARN`, not used as a merge blocker.
-Infrastructure/report failures are fail-closed and fail CI.
+Infrastructure/report failures are fail-closed and make the command exit nonzero.
 
-### PR CI and fork PR caveat
+### Local-only policy
 
-`.github/workflows/test.yml` keeps the existing Node 18/20/22 `npm test`
-matrix and adds a separate `live-quality` job on Node 22. That job runs the
-same `npm run quality:live` command, uploads `artifacts/live-quality/`, and
-appends `report.md` to `$GITHUB_STEP_SUMMARY`.
+`npm run quality:live` is **not** part of the default GitHub Actions PR job.
+The workflow still runs the deterministic `npm test` matrix, but live quality
+is intentionally kept local/manual because it needs provider credentials, can
+consume API quota, and may produce model-dependent `WARN` results.
 
-GitHub Actions does not pass normal repository secrets to workflows triggered
-from forked pull requests, except `GITHUB_TOKEN`. Because this workflow is
-fail-closed for missing credentials and it runs PR code, it deliberately uses
-`pull_request` and does **not** switch to `pull_request_target` just to expose
-secrets. Fork PRs may therefore fail the live-quality job until a maintainer
-chooses a different policy.
+Use it before a PR when the change might affect rewrite quality, scoring,
+prompting, provider defaults, or output formatting. If a maintainer later wants
+PR-visible live quality again, add a separate opt-in job rather than using
+`pull_request_target` to expose secrets to PR code.
 
 ## Extending the corpus
 
